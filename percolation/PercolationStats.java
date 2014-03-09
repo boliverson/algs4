@@ -1,8 +1,8 @@
 public class PercolationStats {
-    private final double mean;
-    private final double stddev;
-    private final double confidenceLo;
-    private final double confidenceHi;
+    private double mean;
+    private double stddev;
+    private double confidenceLo;
+    private double confidenceHi;
 
     public PercolationStats(int N, int T) {
         if (N <= 0 || T <= 0) {
@@ -13,12 +13,12 @@ public class PercolationStats {
         confidenceLo = 0.0;
         confidenceHi = 0.0;
 
-        int[] records = new int[T];
+        double[] x = new double[T];
 
         for (int t = 0; t < T; ++t) {
             int counter = 0;
             Percolation percolation = new Percolation(N);
-            for (int k = 1; true; ++k) {
+            while (true) {
                 int index = StdRandom.uniform(N * N);
                 int i = index / N + 1;
                 int j = index % N + 1;
@@ -28,16 +28,29 @@ public class PercolationStats {
                     j = index % N + 1;
                 }
                 percolation.open(i, j);
+                ++counter;
                 if (percolation.percolates()) {
-                    counter += k;
                     break;
                 }
             }
-            records[t] = counter;
+            x[t] = (double) counter / (N * N); 
         }
 
         for (int t = 0; t < T; ++t) {
+            mean += x[t]; 
         }
+        mean /= T;
+
+        if (T > 1) {
+            for (int t = 0; t < T; ++t) {
+                stddev += (x[t] - mean) * (x[t] - mean);
+            }
+            stddev /= T - 1;
+        }
+        stddev = Math.sqrt(stddev);
+
+        confidenceLo = mean - 1.96 * stddev / Math.sqrt((double) T);
+        confidenceHi = mean + 1.96 * stddev / Math.sqrt((double) T);
         
     }
 

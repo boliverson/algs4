@@ -23,15 +23,20 @@ public class Percolation {
         }
         int[][] dirs = new int[][] {{-1, 0}, {0, -1}, {1, 0}, {0, 1}};
         marked[index] = true;
+        if (i == 1) {
+            uf.union(index, source);
+        }
+        if (i == width) {
+            uf.union(index, sink);
+        }
         for (int k = 0; k < 4; ++k) {
             int u = i + dirs[k][0];
             int v = j + dirs[k][1];
             if (!checkBounds(u, v)) {
                 continue;
             }
-            int w = getIndex(u, v);
             if (isOpen(u, v)) {
-                uf.union(index, w);
+                uf.union(index, getIndex(u, v));
             }
         }
     }
