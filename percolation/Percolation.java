@@ -1,69 +1,85 @@
 public class Percolation {
-    private final WeightedQuickUnionUF uf;
-    private final int width;
-    private final int source;
-    private final int sink;
-    private final boolean[] marked;
+    private WeightedQuickUnionUF topUF;
+    private WeightedQuickUnionUF bottomUF;
+    private int width;  
+    private boolean[] marked;
+    private int top = 0;
+    private int bottom;
+    private boolean percolates = false;
 
     public Percolation(int N) {
-        uf = new WeightedQuickUnionUF(N * N + 2);
+        topUF = new WeightedQuickUnionUF(N * N + 2);
+        bottomUF = new WeightedQuickUnionUF(N * N + 2);
         width = N;
-        source = 0;
-        sink = N * N + 1;
         marked = new boolean[N * N + 2];
+        bottom = N * N + 1;
     }
 
     public void open(int i, int j) {
         if (!checkBounds(i, j)) {
-            throw new IndexOutOfBoundsException();
+            throw new java.lang.IndexOutOfBoundsException();
         }
-        int index = getIndex(i, j);
-        if (marked[index]) {
+        int current = getIndex(i, j);
+        if (marked[current]) {
             return;
         }
-        int[][] dirs = new int[][] {{-1, 0}, {0, -1}, {1, 0}, {0, 1}};
-        marked[index] = true;
+        marked[current] = true;
         if (i == 1) {
-            uf.union(index, source);
+            topUF.union(top, current);
         }
         if (i == width) {
-            uf.union(index, sink);
+            bottomUF.union(current, bottom);
         }
+        final int[][] dirs = new int[][] { {0, -1}, {-1, 0}, {0, 1}, {1, 0} };
         for (int k = 0; k < 4; ++k) {
             int u = i + dirs[k][0];
             int v = j + dirs[k][1];
             if (!checkBounds(u, v)) {
                 continue;
             }
+            int neighbor = getIndex(u, v);
             if (isOpen(u, v)) {
-                uf.union(index, getIndex(u, v));
+                topUF.union(current, neighbor);
+                bottomUF.union(current, neighbor);
+                if (checkPivot(u, v)) {
+                    percolates = true;
+                }
             }
         }
+        if (checkPivot(i, j)) {
+            percolates = true;
+        }
     }
-    
+
     public boolean isOpen(int i, int j) {
         if (!checkBounds(i, j)) {
-            throw new IndexOutOfBoundsException();
+            throw new java.lang.IndexOutOfBoundsException();
         }
         return marked[getIndex(i, j)];
     }
-    
+
     public boolean isFull(int i, int j) {
         if (!checkBounds(i, j)) {
-            throw new IndexOutOfBoundsException();
+            throw new java.lang.IndexOutOfBoundsException();
         }
-        return uf.connected(source, getIndex(i, j));
+        return topUF.connected(top, getIndex(i, j));
     }
 
     public boolean percolates() {
-        return uf.connected(source, sink);
+        return percolates;
+    }
+
+    private int getIndex(int i, int j) {
+        return (i - 1) * width + j;
     }
 
     private boolean checkBounds(int i, int j) {
         return 1 <= i && i <= width && 1 <= j && j <= width;
     }
 
-    private int getIndex(int i, int j) {
-        return (i - 1) * width + j;
+    private boolean checkPivot(int i, int j) {
+        int index = getIndex(i, j);
+        return topUF.connected(top, index)
+            && bottomUF.connected(index, bottom);
     }
 }
