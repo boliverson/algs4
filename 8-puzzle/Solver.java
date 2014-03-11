@@ -62,7 +62,7 @@ public class Solver {
             }
         }
 
-        if (!((initial.dimension() % 2 == 1 && inversions % 2 == 0)
+        if (!((initial.dimension() % 2 != 0 && inversions % 2 == 0)
                     || (initial.dimension() % 2 == 0
                         && zeroRow % 2 != inversions % 2))) {
             return;
