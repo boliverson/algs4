@@ -1,11 +1,12 @@
+import java.util.TreeSet;
 import java.util.ArrayList;
 
 public class PointSET {
 
-    private SET<Point2D> set;
+    private TreeSet<Point2D> set;
 
     public PointSET() {
-        set = new SET<Point2D>();
+        set = new TreeSet<Point2D>();
     }
 
     public boolean isEmpty() {
@@ -46,8 +47,8 @@ public class PointSET {
         if (set.isEmpty()) {
             return null;
         }
-        Point2D minPoint = set.min();
-        Point2D maxPoint = set.max();
+        Point2D minPoint = set.first();
+        Point2D maxPoint = set.last();
         if (p.compareTo(minPoint) == -1) {
             return minPoint;
         }
