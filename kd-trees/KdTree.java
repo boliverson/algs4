@@ -1,4 +1,4 @@
-import java.util.TreeSet;
+import java.util.ArrayList;
 
 public class KdTree {
     private class KdTreeNode {
@@ -37,25 +37,26 @@ public class KdTree {
         if (contains(p)) {
             return;
         }
-        root = insert(root, 0, p, new RectHV(0.0, 0.0, 1.0, 1.0));
+        root = insert(root, 0, p, 0.0, 0.0, 1.0, 1.0);
         ++size;
     }
 
-    private KdTreeNode insert(KdTreeNode node, int level, Point2D p, RectHV r) {
+    private KdTreeNode insert(KdTreeNode node, int level, Point2D p,
+            double xmin, double ymin, double xmax, double ymax) {
         if (node == null) {
-            return new KdTreeNode(p, r, null, null);
+            return new KdTreeNode(p, new RectHV(xmin, ymin, xmax, ymax), null, null);
         }
         if (level % 2 == 0) {
             if (p.x() < node.point.x()) {
-                node.left = insert(node.left, level + 1, p, new RectHV(r.xmin(), r.ymin(), node.point.x(), r.ymax()));
+                node.left = insert(node.left, level + 1, p, xmin, ymin, node.point.x(), ymax);
             } else {
-                node.right = insert(node.right, level + 1, p, new RectHV(node.point.x(), r.ymin(), r.xmax(), r.ymax()));
+                node.right = insert(node.right, level + 1, p, node.point.x(), ymin, xmax, ymax);
             }
         } else {
             if (p.y() < node.point.y()) {
-                node.left = insert(node.left, level + 1, p, new RectHV(r.xmin(), r.ymin(), r.xmax(), node.point.y()));
+                node.left = insert(node.left, level + 1, p, xmin, ymin, xmax, node.point.y());
             } else {
-                node.right = insert(node.right, level + 1, p, new RectHV(r.xmin(), node.point.y(), r.xmax(), r.ymax()));
+                node.right = insert(node.right, level + 1, p, xmin, node.point.y(), xmax, ymax);
             }
         }
         return node;
@@ -115,19 +116,19 @@ public class KdTree {
         return searchRange(root, 0, rect);
     }
 
-    private TreeSet<Point2D> searchRange(KdTreeNode node, int level, RectHV r) {
-        TreeSet<Point2D> set = new TreeSet<Point2D>();
+    private ArrayList<Point2D> searchRange(KdTreeNode node, int level, RectHV r) {
+        ArrayList<Point2D> nodeList = new ArrayList<Point2D>();
         if (node == null || !r.intersects(node.rect)) {
-            return set;
+            return nodeList;
         }
         if (r.contains(node.point)) {
-            set.add(node.point);
+            nodeList.add(node.point);
         }
-        TreeSet<Point2D> leftSet = searchRange(node.left, level + 1, r);
-        TreeSet<Point2D> rightSet = searchRange(node.right, level + 1, r);
-        set.addAll(leftSet);
-        set.addAll(rightSet);
-        return set;
+        ArrayList<Point2D> leftList = searchRange(node.left, level + 1, r);
+        ArrayList<Point2D> rightList = searchRange(node.right, level + 1, r);
+        nodeList.addAll(leftList);
+        nodeList.addAll(rightList);
+        return nodeList;
     }
 
     public Point2D nearest(Point2D p) {
@@ -185,34 +186,6 @@ public class KdTree {
             kdtree.insert(p);
             brute.insert(p);
         }
-
-        /*
-        while (true) {
-
-            // the location (x, y) of the mouse
-            double x = StdDraw.mouseX();
-            double y = StdDraw.mouseY();
-            Point2D query = new Point2D(x, y);
-
-            // draw all of the points
-            StdDraw.clear();
-            StdDraw.setPenColor(StdDraw.BLACK);
-            StdDraw.setPenRadius(.01);
-            brute.draw();
-
-            // draw in red the nearest neighbor (using brute-force algorithm)
-            StdDraw.setPenRadius(.03);
-            StdDraw.setPenColor(StdDraw.RED);
-            brute.nearest(query).draw();
-            StdDraw.setPenRadius(.02);
-
-            // draw in blue the nearest neighbor (using kd-tree algorithm)
-            StdDraw.setPenColor(StdDraw.BLUE);
-            kdtree.nearest(query).draw();
-            StdDraw.show(0);
-            StdDraw.show(40);
-        }
-        */
         while (true) {
             double x = StdIn.readDouble();
             double y = StdIn.readDouble();

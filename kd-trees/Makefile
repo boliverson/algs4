@@ -1,11 +1,10 @@
-JFLAGS = -g
+JFLAGS = -cp "lib/*:."
 JC = javac
 .SUFFIXES: .java .class
 .java.class:
-	$(JC) $(JFLAGS) $*.java
+	$(JC) -g $(JFLAGS) $*.java
 
 CLASSES = \
-		  Point2D.java \
 		  RectHV.java \
 		  PointSET.java \
 		  KdTree.java \
@@ -18,7 +17,16 @@ default: classes
 classes: $(CLASSES:.java=.class)
 
 clean:
-	$(RM) $(CLASSES:.java=.class)
+	$(RM) *.class
+
+kdtreevisualizer:
+	java $(JFLAGS) KdTreeVisualizer input100K.txt
+
+rangesearchvisualizer:
+	java $(JFLAGS) RangeSearchVisualizer input100K.txt
+
+nearestneighborvisualizer:
+	java $(JFLAGS) NearestNeighborVisualizer input100K.txt
 
 zip:
 	zip kdtree.zip PointSET.java KdTree.java
