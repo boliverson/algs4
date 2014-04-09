@@ -1,143 +1,74 @@
-import java.util.HashMap;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
 
 public class WordNet {
-
-    private class DepthFirstOrder implements Iterable<Integer> {
-        private ArrayList<Integer> order;
-        private boolean[] marked;
-
-        public DepthFirstOrder(Digraph G) {
-            order = new ArrayList<Integer>();
-            marked = new boolean[G.V()];
-            for (int v = 0; v < G.V(); ++v) {
-                if (!marked[v]) {
-                    dfs(G, v);
-                }
-            }
-            Collections.reverse(order);
-        }
-
-        private void dfs(Digraph G, int v) {
-            marked[v] = true;
-            for (int w : G.adj(v)) {
-                if (!marked[w]) {
-                    dfs(G, w);
-                }
-            }
-            order.add(v);
-        }
-
-        @Override
-        public Iterator<Integer> iterator() {
-            return order.iterator();
-        }
-    }
-
-    private class KosarajuSharirSCC {
-        private boolean[] marked;
-        private int[] id;
-        private int count;
-
-        public KosarajuSharirSCC(Digraph G) {
-            marked = new boolean[G.V()];
-            id = new int[G.V()];
-            DepthFirstOrder reverseOrder = new DepthFirstOrder(G.reverse());
-
-            for (int v : reverseOrder) {
-                if (!marked[v]) {
-                    dfs(G, v);
-                    ++count;
-                }
-            }
-        }
-
-        private void dfs(Digraph G, int v) {
-            marked[v] = true;
-            id[v] = count;
-            for (int w : G.adj(v)) {
-                if (!marked[w]) {
-                    dfs(G, w);
-                }
-            }
-        }
-
-        public int count() {
-            return count;
-        }
-
-    }
-
     private ArrayList<String> synsetList;
     private Map<String, ArrayList<Integer>> synsetMap;
     private Digraph G;
     private SAP sap;
 
-    private int[] inCounts;
-    private int[] outCounts;
-
     public WordNet(String synsets, String hypernyms) {
         synsetList = new ArrayList<String>();
         synsetMap = new HashMap<String, ArrayList<Integer>>();
 
-        In in = new In(synsets);
-
-        while (!in.isEmpty()) {
-            String[] tokens = in.readLine().split(",");
+        In synsetsIn = new In(synsets);
+        while (synsetsIn.hasNextLine()) {
+            String strLine = synsetsIn.readLine();
+            String[] tokens = strLine.split(",");
             int id = Integer.parseInt(tokens[0]);
-            String[] nouns = tokens[1].split(" ");
-            for (int i = 0; i < nouns.length; ++i) {
-                if (synsetMap.get(nouns[i]) == null) {
-                    synsetMap.put(nouns[i], new ArrayList<Integer>());
-                }
-                synsetMap.get(nouns[i]).add(id);
+            if (synsetList.size() < id) {
+                synsetList.ensureCapacity(id + 1);
             }
             synsetList.add(tokens[1]);
+            String[] nouns = tokens[1].split(" ");
+            for (String noun : nouns) {
+                if (!synsetMap.containsKey(noun)) {
+                    synsetMap.put(noun, new ArrayList<Integer>());
+                }
+                synsetMap.get(noun).add(id);
+            }
         }
-        in.close();
+        synsetsIn.close();
 
         G = new Digraph(synsetList.size());
+        int[] outputs = new int[synsetList.size()];
 
-        inCounts = new int[G.V()];
-        outCounts = new int[G.V()];
-
-        in = new In(hypernyms);
-        while (!in.isEmpty()) {
-            String[] tokens = in.readLine().split(",");
+        In hypernymsIn = new In(hypernyms);
+        while (hypernymsIn.hasNextLine()) {
+            String strLine = hypernymsIn.readLine();
+            String[] tokens = strLine.split(",");
             int v = Integer.parseInt(tokens[0]);
+            outputs[v] += tokens.length - 1;
+
             for (int i = 1; i < tokens.length; ++i) {
                 int w = Integer.parseInt(tokens[i]);
                 G.addEdge(v, w);
-
-                ++inCounts[w];
-                ++outCounts[v];
             }
         }
-        in.close();
+        hypernymsIn.close();
 
-        if (!detectDirectedAcyclicGraph()) {
-            throw new java.lang.IllegalArgumentException();
+        if (!checkRootedDAG(outputs)) {
+            throw new IllegalArgumentException();
         }
-
 
         sap = new SAP(G);
     }
 
-    private boolean detectDirectedAcyclicGraph() {
-        int n = G.V();
+    private boolean checkRootedDAG(int[] outputs) {
         int rootCount = 0;
-        for (int v = 0; v < n; ++v) {
-            if (outCounts[v] == 0) {
+        for (int v = 0; v < G.V(); ++v) {
+            if (outputs[v] == 0) {
                 ++rootCount;
             }
         }
         if (rootCount != 1) {
             return false;
         }
-        return new KosarajuSharirSCC(G).count() == n;
+        if (new KosarajuSharirSCC(G).count() < synsetList.size()) {
+            return false;
+        }
+        return true;
     }
 
     public Iterable<String> nouns() {
@@ -152,27 +83,17 @@ public class WordNet {
         if (!isNoun(nounA) || !isNoun(nounB)) {
             throw new java.lang.IllegalArgumentException();
         }
-        ArrayList<Integer> la = synsetMap.get(nounA);
-        ArrayList<Integer> lb = synsetMap.get(nounB);
-        return sap.length(la, lb); 
+        return sap.length(synsetMap.get(nounA), synsetMap.get(nounB));
     }
 
     public String sap(String nounA, String nounB) {
         if (!isNoun(nounA) || !isNoun(nounB)) {
             throw new java.lang.IllegalArgumentException();
         }
-        ArrayList<Integer> lv = synsetMap.get(nounA);
-        ArrayList<Integer> lw = synsetMap.get(nounB);
-        return synsetList.get(sap.ancestor(lv, lw));
+        return synsetList.get(sap.ancestor(synsetMap.get(nounA),
+                    synsetMap.get(nounB)));
     }
 
     public static void main(String[] args) {
-        WordNet wordnet = new WordNet(args[0], args[1]);
-        while (!StdIn.isEmpty()) {
-            String nounA = StdIn.readLine();
-            String nounB = StdIn.readLine();
-            StdOut.println(wordnet.distance(nounA, nounB));
-        }
     }
-
 }

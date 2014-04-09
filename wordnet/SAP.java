@@ -1,166 +1,114 @@
-import java.util.Queue;
-import java.util.LinkedList;
-
 public class SAP {
     private Digraph G;
-    private Digraph R;
 
     public SAP(Digraph G) {
-        this.G = G;
-        this.R = G.reverse();
+        this.G = new Digraph(G);
+    }
+
+    private boolean checkBounds(int v) {
+        return 0 <= v && v < G.V();
     }
 
     public int length(int v, int w) {
         if (!checkBounds(v) || !checkBounds(w)) {
             throw new java.lang.IndexOutOfBoundsException();
         }
-        Queue<Integer> Q = new LinkedList<Integer>();
-        Q.add(v);
-
-        int[] dp = new int[G.V()];
-        for (int i = 0; i < G.V(); ++i) {
-            dp[i] = Integer.MAX_VALUE;
-        }
-        dp[v] = 0;
-
-        while (!Q.isEmpty()) {
-            int curr = Q.poll();
-            if (curr == w) {
-                return dp[curr];
+        BreadthFirstDirectedPaths bfdpV = new BreadthFirstDirectedPaths(G, v);
+        BreadthFirstDirectedPaths bfdpW = new BreadthFirstDirectedPaths(G, w);
+        int minLength = Integer.MAX_VALUE;
+        for (int u = 0; u < G.V(); ++u) {
+            if (!bfdpV.hasPathTo(u) || !bfdpW.hasPathTo(u)) {
+                continue;
             }
-            for (int next : G.adj(curr)) {
-                if (!checkBounds(next)) {
-                    throw new java.lang.IndexOutOfBoundsException();
-                }
-                if (dp[curr] + 1 < dp[next]) {
-                    dp[next] = dp[curr] + 1;
-                    Q.add(next);
-                }
-            }
-            for (int next : R.adj(curr)) {
-                if (!checkBounds(next)) {
-                    throw new java.lang.IndexOutOfBoundsException();
-                }
-                if (dp[curr] + 1 < dp[next]) {
-                    dp[next] = dp[curr] + 1;
-                    Q.add(next);
-                }
+            int dist = bfdpV.distTo(u) + bfdpW.distTo(u);
+            if (dist < minLength) {
+                minLength = dist;
             }
         }
-
-        return -1;
+        if (minLength == Integer.MAX_VALUE) {
+            return -1;
+        } else {
+            return minLength;
+        }
     }
 
     public int ancestor(int v, int w) {
         if (!checkBounds(v) || !checkBounds(w)) {
             throw new java.lang.IndexOutOfBoundsException();
         }
-
-        Queue<Integer> Q = new LinkedList<Integer>();
-        Q.add(v);
-
-        int[] dp = new int[G.V()];
-        for (int i = 0; i < G.V(); ++i) {
-            dp[i] = Integer.MAX_VALUE;
-        }
-        dp[v] = 0;
-
-        int[] trace = new int[G.V()];
-        for (int i = 0; i < G.V(); ++i) {
-            trace[i] = -1;
-        }
-        trace[v] = v;
-
-        while (!Q.isEmpty()) {
-            int curr = Q.peek();
-            if (curr == w) {
-                break;
+        BreadthFirstDirectedPaths bfdpV = new BreadthFirstDirectedPaths(G, v);
+        BreadthFirstDirectedPaths bfdpW = new BreadthFirstDirectedPaths(G, w);
+        int minLength = Integer.MAX_VALUE;
+        int anc = -1;
+        for (int u = 0; u < G.V(); ++u) {
+            if (!bfdpV.hasPathTo(u) || !bfdpW.hasPathTo(u)) {
+                continue;
             }
-            Q.poll();
-
-            for (int next : G.adj(curr)) {
-                if (!checkBounds(next)) {
-                    throw new java.lang.IndexOutOfBoundsException();
-                }
-                if (dp[curr] + 1 < dp[next]) {
-                    dp[next] = dp[curr] + 1;
-                    trace[next] = curr;
-                    Q.add(next);
-                }
-            }
-
-            for (int next : R.adj(curr)) {
-                if (!checkBounds(next)) {
-                    throw new java.lang.IndexOutOfBoundsException();
-                }
-                if (dp[curr] + 1 < dp[next]) {
-                    dp[next] = dp[curr] + 1;
-                    trace[next] = curr;
-                    Q.add(next);
-                }
+            int dist = bfdpV.distTo(u) + bfdpW.distTo(u);
+            if (dist < minLength) {
+                minLength = dist;
+                anc = u;
             }
         }
-        
-        if (Q.isEmpty()) {
-            return -1;
-        }
-
-        for (int curr = w; curr != trace[curr]; curr = trace[curr]) {
-            if (checkSuccessor(R, curr, trace[curr])) {
-                return curr;
-            }
-        }
-
-        return -1;
-    }
-
-    private boolean checkSuccessor(Digraph R, int v, int w) {
-        for (int n : R.adj(v)) {
-            if (n == w) {
-                return true;
-            }
-        }
-        return false;
+        return anc;
     }
 
     public int length(Iterable<Integer> v, Iterable<Integer> w) {
-        int minDistance = Integer.MAX_VALUE;
-        for (int nv : v) {
-            for (int nw : w) {
-                int distance = length(nv, nw);
-                if (distance != -1 && distance < minDistance) {
-                    minDistance = distance;
+        for (int iv : v) {
+            if (!checkBounds(iv)) {
+                throw new java.lang.IndexOutOfBoundsException();
+            }
+        }
+        for (int iw : w) {
+            if (!checkBounds(iw)) {
+                throw new java.lang.IndexOutOfBoundsException();
+            }
+        }
+        int minLength = Integer.MAX_VALUE;
+        for (int iv : v) {
+            for (int iw : w) {
+                int dist = length(iv, iw);
+                if (dist == -1) {
+                    continue;
+                }
+                if (dist < minLength) {
+                    minLength = dist;
                 }
             }
         }
-        if (minDistance == Integer.MAX_VALUE) {
+        if (minLength == Integer.MAX_VALUE) {
             return -1;
+        } else {
+            return minLength;
         }
-        return minDistance;
     }
 
     public int ancestor(Iterable<Integer> v, Iterable<Integer> w) {
-        int minDistance = Integer.MAX_VALUE;
-        int tv = -1;
-        int tw = -1;
-        for (int nv : v) {
-            for (int nw : w) {
-                int distance = length(nv, nw);
-                if (distance != -1 && distance < minDistance) {
-                    minDistance = distance;
-                    tv = nv;
-                    tw = nw;
+        for (int iv : v) {
+            if (!checkBounds(iv)) {
+                throw new java.lang.IndexOutOfBoundsException();
+            }
+        }
+        for (int iw : w) {
+            if (!checkBounds(iw)) {
+                throw new java.lang.IndexOutOfBoundsException();
+            }
+        }
+        int minLength = Integer.MAX_VALUE;
+        int anc = -1;
+        for (int iv : v) {
+            for (int iw : w) {
+                int dist = length(iv, iw);
+                if (dist == -1) {
+                    continue;
+                }
+                if (dist < minLength) {
+                    minLength = dist;
+                    anc = ancestor(iv, iw);
                 }
             }
         }
-        if (minDistance == Integer.MAX_VALUE) {
-            return -1;
-        }
-        return ancestor(tv, tw);
-    }
-
-    private boolean checkBounds(int v) {
-        return 0 <= v && v < G.V();
+        return anc;
     }
 
     public static void main(String[] args) {

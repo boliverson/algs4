@@ -10,15 +10,15 @@ public class Outcast {
             return null;
         }
         int maxDistance = distanceToOthers(nouns, 0);
-        String outcast = nouns[0];
+        int outcastId = 0;
         for (int v = 1; v < nouns.length; ++v) {
             int distance = distanceToOthers(nouns, v);
             if (maxDistance < distance) {
                 maxDistance = distance;
-                outcast = nouns[v];
+                outcastId = v;
             }
         }
-        return outcast;
+        return nouns[outcastId];
     }
 
     private int distanceToOthers(String[] nouns, int v) {

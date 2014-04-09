@@ -18,6 +18,9 @@ public class PointSET {
     }
 
     public void insert(Point2D p) {
+        if (set.contains(p)) {
+            return;
+        }
         set.add(p);
     }
 
@@ -47,19 +50,15 @@ public class PointSET {
         if (set.isEmpty()) {
             return null;
         }
-        Point2D minPoint = set.first();
-        Point2D maxPoint = set.last();
-        if (p.compareTo(minPoint) == -1) {
-            return minPoint;
+        double minDistance = Double.MAX_VALUE;
+        Point2D nearestPoint = null;
+        for (Point2D point : set) {
+            double distance = p.distanceSquaredTo(point);
+            if (distance < minDistance) {
+                minDistance = distance;
+                nearestPoint = point;
+            }
         }
-        if (p.compareTo(maxPoint) == 1) {
-            return maxPoint;
-        }
-        Point2D ceilingPoint = set.ceiling(p);
-        Point2D floorPoint = set.floor(p);
-        if (p.distanceTo(ceilingPoint) < p.distanceTo(floorPoint)) {
-            return ceilingPoint;
-        }
-        return floorPoint;
+        return nearestPoint;
     }
 }

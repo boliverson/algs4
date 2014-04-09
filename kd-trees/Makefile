@@ -18,7 +18,7 @@ default: classes
 classes: $(CLASSES:.java=.class)
 
 clean:
-	$(RM) *.class
+	$(RM) $(CLASSES:.java=.class)
 
 zip:
 	zip kdtree.zip PointSET.java KdTree.java

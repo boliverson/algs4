@@ -1,13 +1,15 @@
-import java.util.ArrayList;
+import java.util.TreeSet;
 
 public class KdTree {
     private class KdTreeNode {
         private Point2D point;
+        private RectHV rect;
         private KdTreeNode left;
         private KdTreeNode right;
 
-        private KdTreeNode(Point2D point, KdTreeNode left, KdTreeNode right) {
+        private KdTreeNode(Point2D point, RectHV rect, KdTreeNode left, KdTreeNode right) {
             this.point = point;
+            this.rect = rect;
             this.left = left;
             this.right = right;
         }
@@ -15,6 +17,8 @@ public class KdTree {
 
     private KdTreeNode root;
     private int size;
+
+    private Point2D nearestPoint;
 
     public KdTree() {
         root = null;
@@ -33,25 +37,25 @@ public class KdTree {
         if (contains(p)) {
             return;
         }
-        root = insert(root, 0, p);
+        root = insert(root, 0, p, new RectHV(0.0, 0.0, 1.0, 1.0));
         ++size;
     }
 
-    private KdTreeNode insert(KdTreeNode node, int level, Point2D p) {
+    private KdTreeNode insert(KdTreeNode node, int level, Point2D p, RectHV r) {
         if (node == null) {
-            return new KdTreeNode(p, null, null);
+            return new KdTreeNode(p, r, null, null);
         }
         if (level % 2 == 0) {
             if (p.x() < node.point.x()) {
-                node.left = insert(node.left, level + 1, p);
+                node.left = insert(node.left, level + 1, p, new RectHV(r.xmin(), r.ymin(), node.point.x(), r.ymax()));
             } else {
-                node.right = insert(node.right, level + 1, p);
+                node.right = insert(node.right, level + 1, p, new RectHV(node.point.x(), r.ymin(), r.xmax(), r.ymax()));
             }
         } else {
             if (p.y() < node.point.y()) {
-                node.left = insert(node.left, level + 1, p);
+                node.left = insert(node.left, level + 1, p, new RectHV(r.xmin(), r.ymin(), r.xmax(), node.point.y()));
             } else {
-                node.right = insert(node.right, level + 1, p);
+                node.right = insert(node.right, level + 1, p, new RectHV(r.xmin(), node.point.y(), r.xmax(), r.ymax()));
             }
         }
         return node;
@@ -74,6 +78,7 @@ public class KdTree {
             } else {
                 return contains(node.right, level + 1, p);
             }
+
         } else {
             if (p.y() < node.point.y()) {
                 return contains(node.left, level + 1, p);
@@ -84,8 +89,6 @@ public class KdTree {
     }
 
     public void draw() {
-        StdDraw.setXscale(0.0, 1.0);
-        StdDraw.setYscale(0.0, 1.0);
         draw(root, 0);
     }
 
@@ -93,150 +96,132 @@ public class KdTree {
         if (node == null) {
             return;
         }
+        StdDraw.setPenColor(StdDraw.BLACK);
+        StdDraw.setPenRadius(0.01);
+        StdDraw.point(node.point.x(), node.point.y());
+        StdDraw.setPenRadius();
         if (level % 2 == 0) {
             StdDraw.setPenColor(StdDraw.RED);
-            StdDraw.line(node.point.x(), 0.0, node.point.x(), 1.0);
+            StdDraw.line(node.point.x(), node.rect.ymin(), node.point.x(), node.rect.ymax());
         } else {
             StdDraw.setPenColor(StdDraw.BLUE);
-            StdDraw.line(0.0, node.point.y(), 1.0, node.point.y());
+            StdDraw.line(node.rect.xmin(), node.point.y(), node.rect.xmax(), node.point.y());
         }
         draw(node.left, level + 1);
         draw(node.right, level + 1);
     }
 
     public Iterable<Point2D> range(RectHV rect) {
-        ArrayList<Point2D> pointList = new ArrayList<Point2D>();
-        range(root, 0, new RectHV(0.0, 0.0, 1.0, 1.0), rect, pointList);
-        return pointList;
+        return searchRange(root, 0, rect);
     }
 
-    private void range(KdTreeNode node, int level,
-            RectHV nodeRect, RectHV queryRect, ArrayList<Point2D> pointList) {
-        if (node == null) {
-            return;
+    private TreeSet<Point2D> searchRange(KdTreeNode node, int level, RectHV r) {
+        TreeSet<Point2D> set = new TreeSet<Point2D>();
+        if (node == null || !r.intersects(node.rect)) {
+            return set;
         }
-        if (!nodeRect.intersects(queryRect)) {
-            return;
+        if (r.contains(node.point)) {
+            set.add(node.point);
         }
-        if (queryRect.contains(node.point)) {
-            pointList.add(node.point);
-        }
-        if (level % 2 == 0) {
-            range(node.left, level + 1,
-                    new RectHV(nodeRect.xmin(),
-                        nodeRect.ymin(),
-                        node.point.x(),
-                        nodeRect.ymax()),
-                    queryRect, pointList);
-            range(node.right, level + 1,
-                    new RectHV(node.point.x(),
-                        nodeRect.ymin(),
-                        nodeRect.xmax(),
-                        nodeRect.ymax()),
-                    queryRect, pointList);
-        } else {
-            range(node.left, level + 1,
-                    new RectHV(nodeRect.xmin(),
-                        nodeRect.ymin(),
-                        nodeRect.xmax(),
-                        node.point.y()),
-                    queryRect, pointList);
-            range(node.right, level + 1,
-                    new RectHV(nodeRect.xmin(),
-                        node.point.y(),
-                        nodeRect.xmax(),
-                        nodeRect.ymax()),
-                    queryRect, pointList);
-        }
+        TreeSet<Point2D> leftSet = searchRange(node.left, level + 1, r);
+        TreeSet<Point2D> rightSet = searchRange(node.right, level + 1, r);
+        set.addAll(leftSet);
+        set.addAll(rightSet);
+        return set;
     }
 
     public Point2D nearest(Point2D p) {
-        return nearest(root, 0, new RectHV(0.0, 0.0, 1.0, 1.0), new Point2D(root.point.x(), root.point.y()), p);
-    }
-
-    private Point2D nearest(KdTreeNode node, int level,
-            RectHV nodeRect, final Point2D nearestPoint, final Point2D p) {
-        if (node == null) {
+        if (isEmpty()) {
             return null;
         }
-        StdOut.printf("%f, %f, %f, %f\n%f, %f\n", nodeRect.xmin(), nodeRect.ymin(), nodeRect.xmax(), nodeRect.ymax(), node.point.x(), node.point.y());
+        nearestPoint = root.point;
+        searchNearest(root, 0, p);
+        return nearestPoint;
+    }
 
-        Point2D currentNearestPoint
-            = new Point2D(nearestPoint.x(), nearestPoint.y());
-        if (currentNearestPoint.distanceTo(p) < nodeRect.distanceTo(p)) {
-            return currentNearestPoint;
+
+    private void searchNearest(KdTreeNode node, int level, Point2D p) {
+        if (node == null) {
+            return;
+        }
+        if (node.rect.distanceSquaredTo(p) >= nearestPoint.distanceSquaredTo(p)) {
+            return;
+        }
+        if (node.point.distanceSquaredTo(p) < nearestPoint.distanceSquaredTo(p)) {
+            nearestPoint = node.point;
         }
         if (level % 2 == 0) {
-            RectHV leftRect = new RectHV(nodeRect.xmin(), nodeRect.ymin(), node.point.x(), nodeRect.ymax());
-            RectHV rightRect = new RectHV(node.point.x(), nodeRect.ymin(), nodeRect.xmax(), nodeRect.ymax());
-            Point2D leftNearestPoint = null;
-            Point2D rightNearestPoint = null;
-            if (leftRect.distanceTo(p) < rightRect.distanceTo(p)) {
-                if (currentNearestPoint.distanceTo(p) < leftRect.distanceTo(p)) {
-                    return currentNearestPoint;
-                }
-                leftNearestPoint = nearest(node.left, level + 1, leftRect, currentNearestPoint, p);
-                if (leftNearestPoint != null && p.distanceTo(leftNearestPoint) < p.distanceTo(currentNearestPoint)) {
-                    currentNearestPoint = new Point2D(leftNearestPoint.x(), leftNearestPoint.y());
-                }
-                rightNearestPoint = nearest(node.right, level + 1, rightRect, currentNearestPoint, p);
-                if (rightNearestPoint != null && p.distanceTo(rightNearestPoint) < p.distanceTo(currentNearestPoint)) {
-                    currentNearestPoint = new Point2D(rightNearestPoint.x(), rightNearestPoint.y());
-                }
+            if (p.x() < node.point.x()) {
+                searchNearest(node.left, level + 1, p);
+                searchNearest(node.right, level + 1, p);
             } else {
-                if (currentNearestPoint.distanceTo(p) < rightRect.distanceTo(p)) {
-                    return currentNearestPoint;
-                }
-                rightNearestPoint = nearest(node.right, level + 1, rightRect, currentNearestPoint, p);
-                if (rightNearestPoint != null && p.distanceTo(rightNearestPoint) < p.distanceTo(currentNearestPoint)) {
-                    currentNearestPoint = new Point2D(rightNearestPoint.x(), rightNearestPoint.y());
-                }
-                leftNearestPoint = nearest(node.left, level + 1, leftRect, currentNearestPoint, p);
-                if (leftNearestPoint != null && p.distanceTo(leftNearestPoint) < p.distanceTo(currentNearestPoint)) {
-                    currentNearestPoint = new Point2D(leftNearestPoint.x(), leftNearestPoint.y());
-                }
+                searchNearest(node.right, level + 1, p);
+                searchNearest(node.left, level + 1, p);
             }
         } else {
-            RectHV bottomRect = new RectHV(nodeRect.xmin(), nodeRect.ymin(), nodeRect.xmax(), node.point.y());
-            RectHV topRect = new RectHV(nodeRect.xmin(), node.point.y(), nodeRect.xmax(), nodeRect.ymax());
-            Point2D bottomNearestPoint = null;
-            Point2D topNearestPoint = null;
-            if (bottomRect.distanceTo(p) < topRect.distanceTo(p)) {
-                if (currentNearestPoint.distanceTo(p) < bottomRect.distanceTo(p)) {
-                    return currentNearestPoint;
-                }
-                bottomNearestPoint = nearest(node.left, level + 1, bottomRect, currentNearestPoint, p);
-                if (bottomNearestPoint != null && p.distanceTo(bottomNearestPoint) < p.distanceTo(currentNearestPoint)) {
-                    currentNearestPoint = new Point2D(bottomNearestPoint.x(), bottomNearestPoint.y());
-                }
-                topNearestPoint = nearest(node.right, level + 1, topRect, currentNearestPoint, p);
-                if (topNearestPoint != null && p.distanceTo(topNearestPoint) < p.distanceTo(currentNearestPoint)) {
-                    currentNearestPoint = new Point2D(topNearestPoint.x(), topNearestPoint.y());
-                }
+            if (p.y() < node.point.y()) {
+                searchNearest(node.left, level + 1, p);
+                searchNearest(node.right, level + 1, p);
             } else {
-                if (currentNearestPoint.distanceTo(p) < topRect.distanceTo(p)) {
-                    return currentNearestPoint;
-                }
-                topNearestPoint = nearest(node.right, level + 1, topRect, currentNearestPoint, p);
-                if (topNearestPoint != null && p.distanceTo(topNearestPoint) < p.distanceTo(currentNearestPoint)) {
-                    currentNearestPoint = new Point2D(topNearestPoint.x(), topNearestPoint.y());
-                }
-                bottomNearestPoint = nearest(node.left, level + 1, bottomRect, currentNearestPoint, p);
-                if (bottomNearestPoint != null && p.distanceTo(bottomNearestPoint) < p.distanceTo(currentNearestPoint)) {
-                    currentNearestPoint = new Point2D(bottomNearestPoint.x(), bottomNearestPoint.y());
-                }
+                searchNearest(node.right, level + 1, p);
+                searchNearest(node.left, level + 1, p);
             }
         }
-        return currentNearestPoint;
     }
 
     public static void main(String[] args) {
-        KdTree tree = new KdTree();
-        for (int x = 0; x < 10; ++x) {
-            for (int y = 0; y < 10; ++y) {
-                tree.insert(new Point2D(x / 10.0, y / 10.0));
-            }
+        String filename = args[0];
+        In in = new In(filename);
+
+        StdDraw.show(0);
+
+        // initialize the two data structures with point from standard input
+        PointSET brute = new PointSET();
+        KdTree kdtree = new KdTree();
+        while (!in.isEmpty()) {
+            double x = in.readDouble();
+            double y = in.readDouble();
+            Point2D p = new Point2D(x, y);
+            kdtree.insert(p);
+            brute.insert(p);
         }
-        StdOut.println(tree.nearest(new Point2D(.34, .46)));
+
+        /*
+        while (true) {
+
+            // the location (x, y) of the mouse
+            double x = StdDraw.mouseX();
+            double y = StdDraw.mouseY();
+            Point2D query = new Point2D(x, y);
+
+            // draw all of the points
+            StdDraw.clear();
+            StdDraw.setPenColor(StdDraw.BLACK);
+            StdDraw.setPenRadius(.01);
+            brute.draw();
+
+            // draw in red the nearest neighbor (using brute-force algorithm)
+            StdDraw.setPenRadius(.03);
+            StdDraw.setPenColor(StdDraw.RED);
+            brute.nearest(query).draw();
+            StdDraw.setPenRadius(.02);
+
+            // draw in blue the nearest neighbor (using kd-tree algorithm)
+            StdDraw.setPenColor(StdDraw.BLUE);
+            kdtree.nearest(query).draw();
+            StdDraw.show(0);
+            StdDraw.show(40);
+        }
+        */
+        while (true) {
+            double x = StdIn.readDouble();
+            double y = StdIn.readDouble();
+            Point2D query = new Point2D(x, y);
+            Point2D nb = brute.nearest(query);
+            StdOut.println("brute: " + nb);
+            Point2D nk = kdtree.nearest(query);
+            StdOut.println("kdtree: " + nk);
+        }
     }
+
 }
